@@ -1,0 +1,1 @@
+using sfjv.projman.service.ProjectManager as service from '../../srv/projman-jv-service';

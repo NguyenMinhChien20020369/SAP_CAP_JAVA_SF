@@ -1,0 +1,43 @@
+{
+  "name": "sfjv-projman-cds",
+  "version": "1.0.0",
+  "devDependencies": {
+    "@sap/cds-dk": "9.6.0"
+  },
+  "sapux": [
+    "app/fioriproject"
+  ],
+  "dependencies": {
+    "@sap/cds": "^9.9.2"
+  },
+  "cds": {
+    "requires": {
+      "ECEmployeeProfile": {
+        "kind": "odata-v2",
+        "model": "srv/external/ECEmployeeProfile",
+        "credentials": {
+          "destination": "SF",
+          "path": "/odata/v2/Background_SpecialAssign",
+          "headers": {
+            "APIKey": "FwPwKl2UYHhMziOr3f1AamcdtwuHNhbc",
+            "Accept": "application/json",
+            "DataServiceVersion": "2.0"
+          }
+        }
+      },
+      "PLTUserManagement": {
+        "kind": "odata-v2",
+        "model": "srv/external/PLTUserManagement",
+        "credentials": {
+          "destination": "SF",
+          "path": "/odata/v2/User",
+          "headers": {
+            "APIKey": "FwPwKl2UYHhMziOr3f1AamcdtwuHNhbc",
+            "Accept": "application/json",
+            "DataServiceVersion": "2.0"
+          }
+        }
+      }
+    }
+  }
+}

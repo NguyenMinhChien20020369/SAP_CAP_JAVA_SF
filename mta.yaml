@@ -1,0 +1,193 @@
+_schema-version: 3.3.0
+ID: sfjv-projman
+version: 1.0.0-SNAPSHOT
+description: "A simple CAP project."
+parameters:
+  enable-parallel-deployments: true
+  deploy_mode: html5-repo
+modules:
+  - name: sfjv-projman-srv
+    type: java
+    path: srv
+    parameters:
+      instances: 1
+      buildpack: sap_java_buildpack_jakarta
+    properties:
+      SPRING_PROFILES_ACTIVE: cloud,sandbox
+      JBP_CONFIG_COMPONENTS: "jres: ['com.sap.xs.java.buildpack.jre.SAPMachineJRE']"
+      JBP_CONFIG_SAP_MACHINE_JRE: '{ version: 21.+ }'
+    build-parameters:
+      builder: custom
+      commands:
+        - mvn clean package -DskipTests=true --batch-mode
+      build-result: target/*-exec.jar
+    provides:
+      - name: srv-api # required by consumers of CAP services (e.g. approuter)
+        properties:
+          srv-url: ${default-url}
+    requires:
+      - name: sfjv-projman-auth
+      - name: sfjv-projman-db
+      - name: sfjv-projman-destination
+
+  - name: sfjv-projman-db-deployer
+    type: hdb
+    path: db
+    parameters:
+      buildpack: nodejs_buildpack
+    build-parameters:
+      builder: custom
+      commands:
+        - npm run build
+    requires:
+      - name: sfjv-projman-db
+
+  - name: sfjv-projman
+    type: approuter.nodejs
+    path: app/router
+    parameters:
+      keep-existing-routes: true
+      disk-quota: 256M
+      memory: 256M
+    requires:
+      - name: srv-api
+        group: destinations
+        properties:
+          name: srv-api # must be used in xs-app.json as well
+          url: ~{srv-url}
+          forwardAuthToken: true
+      - name: sfjv-projman-auth
+      - name: sfjv-projman-html5-runtime
+      - name: sfjv-projman-destination
+    provides:
+      - name: app-api
+        properties:
+          app-protocol: ${protocol}
+          app-uri: ${default-uri}
+          url: ${default-url}
+
+  - name: sfjv-projman-app-deployer
+    type: com.sap.application.content
+    path: .
+    requires:
+      - name: sfjv-projman-auth
+      - name: srv-api
+      - name: sfjv-projman-html5-repo-host
+        parameters:
+          content-target: true
+          config:
+            HTML5Runtime_enabled: true
+    build-parameters:
+      build-result: resources
+      requires:
+        - name: sfjvprojmanfioriproject
+          artifacts:
+            - fioriproject.zip
+          target-path: resources
+
+  - name: sfjvprojmanfioriproject
+    type: html5
+    path: app/fioriproject
+    build-parameters:
+      build-result: dist
+      builder: custom
+      commands:
+        - npm ci
+        - npm run build
+      supported-platforms:
+        []
+
+  - name: sfjv-projman-destinations
+    type: com.sap.application.content
+    requires:
+      - name: sfjv-projman-auth
+        parameters:
+          service-key:
+            name: sfjv-projman-auth-key
+      - name: sfjv-projman-html5-repo-host
+        parameters:
+          service-key:
+            name: sfjv-projman-html5-repo-host-key
+      - name: srv-api
+      - name: sfjv-projman-destination
+        parameters:
+          content-target: true
+    build-parameters:
+      no-source: true
+    parameters:
+      content:
+        instance:
+          existing_destinations_policy: update
+          destinations:
+            - Name: sfjv-projman-html5-repository
+              ServiceInstanceName: sfjv-projman-html5-repo-host
+              ServiceKeyName: sfjv-projman-html5-repo-host-key
+              sap.cloud.service: sfjvprojman.service
+            - Name: sfjv-projman-auth
+              Authentication: OAuth2UserTokenExchange
+              ServiceInstanceName: sfjv-projman-auth
+              ServiceKeyName: sfjv-projman-auth-key
+              sap.cloud.service: sfjvprojman.service
+
+resources:
+  - name: sfjv-projman-auth
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      path: ./xs-security.json
+      config:
+        xsappname: sfjv-projman-${org}-${space}
+        tenant-mode: dedicated
+        oauth2-configuration:
+          credential-types:
+            - "binding-secret"
+            - "x509"
+          redirect-uris:
+            - https://*~{app-api/app-uri}/**
+    requires:
+      - name: app-api
+  - name: sfjv-projman-db
+    type: com.sap.xs.hdi-container
+    parameters:
+      service: hana
+      service-plan: hdi-shared
+  - name: sfjv-projman-destination
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: destination
+      service-plan: lite
+      config:
+        HTML5Runtime_enabled: true
+        init_data:
+          instance:
+            existing_destinations_policy: update
+            destinations:
+              - Name: srv-api
+                URL: ~{srv-api/srv-url}
+                Authentication: NoAuthentication
+                Type: HTTP
+                ProxyType: Internet
+                HTML5.ForwardAuthToken: true
+                HTML5.DynamicDestination: true
+              - Name: SF
+                URL: https://5f411e47trial.it-cpitrial06-rt.cfapps.us10-001.hana.ondemand.com/http/
+                ProxyType: Internet
+                Type: HTTP
+                Authentication: OAuth2ClientCredentials
+                tokenServiceURL: https://5f411e47trial.authentication.us10.hana.ondemand.com/oauth/token
+                clientId: "sb-5696d0f4-fe9f-449f-ab8c-2600450d4e0e!b641671|it-rt-5f411e47trial!b55215"
+                clientSecret: "f65ad6c1-a36c-41d1-881a-7423d205e8b6$ci1JhfTJ0-vw50Wl4pCHHBq4DWlkvBltw5uc2xw_Pr8="
+    requires:
+      - name: srv-api
+
+  - name: sfjv-projman-html5-repo-host
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-plan: app-host
+  - name: sfjv-projman-html5-runtime
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-plan: app-runtime

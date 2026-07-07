@@ -1,0 +1,20 @@
+{
+  "requires": {
+    "[production]": {
+      "db": "hana",
+      "auth": "xsuaa"
+    },
+    "html5-repo": true,
+    "destinations": true,
+    "workzone": true
+  },
+  "odata":{
+    "version": "v4"
+  },
+  "services":{
+    "ProjectManager":{
+      "kind": "odata",
+      "path": "/odata/v4/projman"
+    }
+  }
+}

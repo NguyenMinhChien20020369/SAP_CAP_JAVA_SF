@@ -1,0 +1,15 @@
+{
+  "xsappname": "sfjv-projman",
+  "tenant-mode": "dedicated",
+  "scopes": [],
+  "attributes": [],
+  "role-templates": [],
+  "oauth2-configuration": {
+    "redirect-uris": [
+      "http://localhost:8080/**",
+      "https://*.cf.us10-001.hana.ondemand.com/**",
+      "https://*.cfapps.us10-001.hana.ondemand.com/**",
+      "https://*.trial.applicationstudio.cloud.sap/**"
+    ]
+  }
+}

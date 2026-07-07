@@ -1,0 +1,64 @@
+---
+spring:
+  config:
+    activate:
+      on-profile: default
+  sql:
+    init:
+      platform: h2
+cds:
+  data-source:
+    auto-config:
+      enabled: false
+  remote:
+    services:
+      '[ECEmployeeProfile]':
+        destination:
+          name: SF
+        type: odata-v2
+      '[PLTUserManagement]':
+        destination:
+          name: SF
+        type: odata-v2
+
+---
+spring:
+  config:
+    activate:
+      on-profile: cloud
+cds:
+  remote:
+    services:
+      '[ECEmployeeProfile]':
+        destination:
+          name: SF
+        type: odata-v2
+      '[PLTUserManagement]':
+        destination:
+          name: SF
+        type: odata-v2
+
+---
+logging:
+  level:
+    com.sap.cloud.sdk.datamodel.odata.client: DEBUG
+    com.sap.cloud.sdk.cloudplatform.connectivity: DEBUG
+
+---
+management:
+  endpoint:
+    health:
+      show-components: always
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health
+  health:
+    defaults:
+      enabled: false
+    ping:
+      enabled: true
+    db:
+      enabled: true
