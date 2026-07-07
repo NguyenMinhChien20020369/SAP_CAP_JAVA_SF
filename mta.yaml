@@ -176,8 +176,8 @@ resources:
                 Type: HTTP
                 Authentication: OAuth2ClientCredentials
                 tokenServiceURL: https://5f411e47trial.authentication.us10.hana.ondemand.com/oauth/token
-                clientId: "sb-5696d0f4-fe9f-449f-ab8c-2600450d4e0e!b641671|it-rt-5f411e47trial!b55215"
-                clientSecret: "f65ad6c1-a36c-41d1-881a-7423d205e8b6$ci1JhfTJ0-vw50Wl4pCHHBq4DWlkvBltw5uc2xw_Pr8="
+                clientId: "${cpi_client_id}"
+                clientSecret: "${cpi_client_secret}"
     requires:
       - name: srv-api
 
