@@ -1,6 +1,6 @@
 _schema-version: 3.3.0
 ID: sfjv-projman
-version: 1.0.0-SNAPSHOT
+version: 1.0.1-SNAPSHOT
 description: "A simple CAP project."
 parameters:
   enable-parallel-deployments: true

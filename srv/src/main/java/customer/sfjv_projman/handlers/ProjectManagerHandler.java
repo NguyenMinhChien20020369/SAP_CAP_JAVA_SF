@@ -2,7 +2,6 @@ package customer.sfjv_projman.handlers;
 
 import com.sap.cds.Result;
 import com.sap.cds.Row;
-import com.sap.cds.ql.CQL;
 import com.sap.cds.ql.Delete;
 import com.sap.cds.ql.Insert;
 import com.sap.cds.ql.Select;
@@ -34,11 +33,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import cds.gen.sfjv.projman.service.projectmanager.Employee;
-import cds.gen.sfjv.projman.service.projectmanager.Employee_;
 import cds.gen.sfjv.projman.service.projectmanager.SFSFUser_;
 import cds.gen.sfjv.projman.service.projectmanager.Project_;
 import cds.gen.sfjv.projman.service.projectmanager.ProjectManager_;
+import cds.gen.sfjv.projman.service.projectmanager.Member_;
+
+import cds.gen.ecemployeeprofile.BackgroundSpecialAssign_;
 
 @Component
 @ServiceName(ProjectManager_.CDS_NAME)
@@ -119,7 +119,7 @@ public class ProjectManagerHandler implements EventHandler {
 
             logger.info("Creating assignment: {}", assignment);
 
-            Result inserted = assService.run(Insert.into("Background_SpecialAssign").entry(assignment));
+            Result inserted = assService.run(Insert.into(BackgroundSpecialAssign_.CDS_NAME).entry(assignment));
             if (!inserted.list().isEmpty()) {
                 db.run(Update.entity(NS + entity)
                         .data("hasAssignment", true)
@@ -148,7 +148,7 @@ public class ProjectManagerHandler implements EventHandler {
     }
 
     // BEFORE CREATE Member: đảm bảo Employee tồn tại
-    @Before(event = CqnService.EVENT_CREATE, entity = "ProjectManager.Member")
+    @Before(event = CqnService.EVENT_CREATE, entity = Member_.CDS_NAME)
     public void createEmployee(CdsCreateEventContext context) {
         Map<String, Object> data = context.getCqn().entries().get(0);
         Object userId = data.get("member_userId");
@@ -158,7 +158,7 @@ public class ProjectManagerHandler implements EventHandler {
     }
 
     // AFTER CREATE Member: tạo assignment bên SFSF
-    @After(event = CqnService.EVENT_CREATE, entity = "ProjectManager.Member")
+    @After(event = CqnService.EVENT_CREATE, entity = Member_.CDS_NAME)
     public void afterCreateMember(CdsCreateEventContext context, Result result) {
         Optional<Row> row = result.first();
         if (row.isPresent()) {
@@ -168,7 +168,7 @@ public class ProjectManagerHandler implements EventHandler {
     }
 
     // BEFORE UPDATE Member: kiểm tra nếu member thay đổi
-    @Before(event = CqnService.EVENT_UPDATE, entity = "ProjectManager.Member")
+    @Before(event = CqnService.EVENT_UPDATE, entity = Member_.CDS_NAME)
     public void updateEmployee(CdsUpdateEventContext context) {
         Map<String, Object> data = context.getCqn().entries().get(0);
         Object newUserId = data.get("member_userId");
@@ -180,7 +180,7 @@ public class ProjectManagerHandler implements EventHandler {
     }
 
     // BEFORE DELETE Project/Member: cascade xóa Activity/Member
-    @Before(event = CqnService.EVENT_DELETE, entity = { "ProjectManager.Project", "ProjectManager.Member" })
+    @Before(event = CqnService.EVENT_DELETE, entity = { Project_.CDS_NAME, Member_.CDS_NAME })
     public void deleteChildren(CdsDeleteEventContext context) {
         String entity = context.getTarget().getName(); // vd: "ProjectManager.Project"
         AnalysisResult result = CqnAnalyzer.create(model).analyze(context.getCqn().ref());
@@ -204,8 +204,7 @@ public class ProjectManagerHandler implements EventHandler {
 
     // AFTER UPDATE/DELETE Member, AFTER DELETE Project: dọn Employee không còn
     // assignment
-    @After(event = { CqnService.EVENT_UPDATE, CqnService.EVENT_DELETE }, entity = { "ProjectManager.Member",
-            "ProjectManager.Project" })
+    @After(event = { CqnService.EVENT_UPDATE, CqnService.EVENT_DELETE }, entity = { Project_.CDS_NAME, Member_.CDS_NAME })
     public void deleteUnassignedEmployees() {
         // Lấy danh sách userId đang được assign
         Result membersResult = db.run(Select.from(NS + "Member").columns("member_userId"));
@@ -228,7 +227,7 @@ public class ProjectManagerHandler implements EventHandler {
 
     // BEFORE SAVE Project (Fiori Draft support)
     @SuppressWarnings("unchecked")
-    @Before(event = "SAVE", entity = "ProjectManager.Project")
+    @Before(event = { CqnService.EVENT_CREATE, CqnService.EVENT_UPDATE }, entity = Project_.CDS_NAME)
     public void beforeSaveProject(EventContext context) {
         // Lấy team member từ payload draft
         List<Map<String, Object>> team = (List<Map<String, Object>>) context.get("team");
@@ -281,22 +280,22 @@ public class ProjectManagerHandler implements EventHandler {
     }
 
     // AFTER SAVE Project (Fiori Draft support)
-    // @After(event = "SAVE", entity = "ProjectManager.Project")
-    // public void afterSaveProject(Result result) {
-    //     Optional<Row> row = result.first();
-    //     if (row.isEmpty())
-    //         return;
-    //     Row data = row.get();
-    //     String projectId = data.get("ID").toString();
+    @After(event = { CqnService.EVENT_CREATE, CqnService.EVENT_UPDATE }, entity = Project_.CDS_NAME)
+    public void afterSaveProject(Result result) {
+        Optional<Row> row = result.first();
+        if (row.isEmpty())
+            return;
+        Row data = row.get();
+        String projectId = data.get("ID").toString();
 
-    //     Result unassigned = db.run(Select.from(NS + "Member")
-    //             .columns("ID", "member_userId")
-    //             .where(e -> e.get("parent_ID").eq(projectId).and(e.get("hasAssignment").eq(false))));
+        Result unassigned = db.run(Select.from(NS + "Member")
+                .columns("ID", "member_userId")
+                .where(e -> e.get("parent_ID").eq(projectId).and(e.get("hasAssignment").eq(false))));
 
-    //     for (Row m : unassigned.list()) {
-    //         createAssignment("Member", m.get("ID").toString(), m.get("member_userId").toString());
-    //     }
+        for (Row m : unassigned.list()) {
+            createAssignment("Member", m.get("ID").toString(), m.get("member_userId").toString());
+        }
 
-    //     deleteUnassignedEmployees();
-    // }
+        deleteUnassignedEmployees();
+    }
 }
